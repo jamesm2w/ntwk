@@ -7,7 +7,6 @@ use std::cell::RefCell;
 /// 
 /// TODO: Make storage more generic so we can swap between say Adj List and G=(V, E) forms (e.g.) 
 
-// pub type NetworkGraph = Vec<Rc<Node<i32>>>; // List of Nodes -- Adjacency List.
 #[derive(Debug, Default)]
 pub struct NetworkGraph {
     nodes: Vec<Arc<Node<Point>>>,
@@ -50,7 +49,11 @@ impl NetworkGraph {
         Node::connect(node_src, node_dst)
     }
 
-    pub fn remove_edge(&mut self, node_src: &Arc<Node<Point>>, node_dst: &Arc<Node<Point>>) {
+    pub fn add_curve(&mut self, node_src: &Arc<Node<Point>>, node_dst: &Arc<Node<Point>>, control: Point) {
+        Node::connect_with_curve(node_src, node_dst, control)
+    }
+
+    pub fn remove_edge(&mut self, _node_src: &Arc<Node<Point>>, _node_dst: &Arc<Node<Point>>) {
         println!("How the hell am I supposed to do this");
         unimplemented!() // TODO
     }
@@ -123,7 +126,7 @@ impl<T: PartialEq> Node<T> {
     /// Create a new Rc<Node<T>> based off some name and data. Has empty connection list.
     /// Rc is needed to put this onto the heap and allow multiple pointers to it.
     pub fn new(name: String, data: T) -> Arc<Node<T>> {
-        Arc::new(Node {name, data: data, edges: RefCell::new(vec![])})
+        Arc::new(Node {name, data, edges: RefCell::new(vec![])})
     }
 
     pub fn data(&self) -> &T {
@@ -146,20 +149,19 @@ impl<T: PartialEq> Node<T> {
         dest.edges.borrow_mut().push(Connection::new(source.clone()));
     }
 
+    /// Connect two nodes via bezier curve
+    pub fn connect_with_curve(source: &Arc<Node<T>>, dest: &Arc<Node<T>>, ctl: Point) {
+        source.edges.borrow_mut().push(Connection::new_curve(dest.clone(), ctl.clone()));
+        dest.edges.borrow_mut().push(Connection::new_curve(source.clone(), ctl));
+    }
+
     pub fn disconnect(&self, other: &Arc<Node<T>>) { // might be able to do this more idiomatically
 
         let mut conn_index = vec![];
         let mut index = 0;
 
         for conn in self.edges.borrow().iter() {
-            // match conn.dst.upgrade() {
-            //     Some(node) => {
-            //         if node.eq(other) {
-            //             conn_index.push(index)
-            //         }
-            //     }
-            //     _ => conn_index.push(index)
-            // }
+
             if conn.dst.eq(other) {
                 conn_index.push(index)
             }
@@ -176,13 +178,12 @@ impl<T: PartialEq> Connection<T> {
     /// Create a new connection from a Rc Node<T>.
     /// TODO: fully expand this impl
     pub fn new(dst: Arc<Node<T>>) -> Self {
-        // Connection { dst: Rc::downgrade(&dst), weight: None, ctl: None }
         Connection { dst: dst.clone(), weight: None, ctl: None }
     }
 
-    // pub fn destination(&self) -> &Weak<Node<T>> {
-    //     &self.dst
-    // }
+    pub fn new_curve(dst: Arc<Node<T>>, ctl: Point) -> Self {
+        Connection { dst: dst.clone(), weight: None, ctl: Some(ctl) }
+    }
 
     pub fn destination(&self) -> &Arc<Node<T>> {
         &self.dst

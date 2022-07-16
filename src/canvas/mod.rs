@@ -7,7 +7,7 @@ use iced::{
 };
 use iced::{mouse, Point};
 
-use self::mode::PlaceEdgeProgress;
+use self::mode::{PlaceEdgeProgress, PlaceCurveProgress};
 
 pub mod mode;
 
@@ -85,7 +85,37 @@ impl<'a> Program<Message> for NetworkCanvas<'a> {
                                     }
                                 }
                             }
-                        }
+                        },
+
+                        mode::Mode::PlaceCurve(progress) => {
+                            match progress {
+                                PlaceCurveProgress::None => {
+                                    state.mode = mode::Mode::PlaceCurve(match self.graph.get_near_point(cursor_pos) {
+                                        Some(from) => (mode::PlaceCurveProgress::From { from: *from.data() }),
+                                        None => mode::PlaceCurveProgress::None
+                                    });
+
+                                    Some(Message::Ack)
+                                },
+                                PlaceCurveProgress::From { from } => {
+
+                                    state.mode = mode::Mode::PlaceCurve(match self.graph.get_near_point(cursor_pos) {
+                                        Some(to) => (mode::PlaceCurveProgress::To { from: *from, to: *to.data() }),
+                                        None => mode::PlaceCurveProgress::From { from: *from }
+                                    });
+
+                                    Some(Message::Ack)
+                                },
+                                PlaceCurveProgress::To { from, to } => {
+                                    let from = *from;
+                                    let to = *to;
+
+                                    state.mode = mode::Mode::View;
+
+                                    Some(Message::AddCurve(from, to, cursor_pos))
+                                }
+                            }
+                        } // end place curve mode
 
                         // Other modes no action     
                         _ => None
@@ -121,7 +151,6 @@ impl<'a> Program<Message> for NetworkCanvas<'a> {
 
                     let point = conn.destination();
 
-                    // if let Some(point) = conn.destination().upgrade() {
                     let path = match conn.control() {
                         None => Path::line(*node.data(), *point.data()),
                         Some(cpoint) => Path::new(|f| {
@@ -131,7 +160,6 @@ impl<'a> Program<Message> for NetworkCanvas<'a> {
                     };
 
                     frame.stroke(&path, Stroke::default().with_width(2.0));
-                    // }
                 }
             }
 

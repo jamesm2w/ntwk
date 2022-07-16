@@ -8,6 +8,7 @@ pub enum Mode {
     View,
     PlaceNode,
     PlaceEdge(PlaceEdgeProgress),
+    PlaceCurve(PlaceCurveProgress),
     RemoveNode,
     RemoveEdge,
 }
@@ -17,6 +18,13 @@ pub enum Mode {
 pub enum PlaceEdgeProgress {
     None,
     From { from: Point },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PlaceCurveProgress {
+    None,
+    From { from: Point },
+    To { from: Point, to: Point }
 }
 
 impl Default for Mode {
@@ -39,7 +47,8 @@ impl Mode {
                             rule: FillRule::EvenOdd,
                         },
                     );
-                }
+                },
+                
                 Mode::PlaceEdge(progress) => match progress {
                     PlaceEdgeProgress::From { from } => {
                         frame.stroke(
@@ -48,6 +57,25 @@ impl Mode {
                         );
                     }
                     _ => {}
+                },
+
+                Mode::PlaceCurve(progress) => match progress {
+                    PlaceCurveProgress::None => {},
+                    PlaceCurveProgress::From { from } => {
+                        frame.stroke(
+                            &Path::line(*from, cursor_pos),
+                            Stroke::default().with_width(2.0)
+                        )
+                    },
+                    PlaceCurveProgress::To { from, to } => {
+                        frame.stroke(
+                            &Path::new(|f| {
+                                f.move_to(*from);
+                                f.quadratic_curve_to(cursor_pos, *to);
+                            }),
+                            Stroke::default().with_width(2.0)
+                        )
+                    }
                 },
                 _ => {}
             }
